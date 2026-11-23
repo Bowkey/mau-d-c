@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import CatalogPage from "@/components/catalog-page";
 
 export const metadata = {
@@ -5,8 +6,16 @@ export const metadata = {
   description: "Explore sewing, amendment, training and weaving services from Mau.",
 };
 
-export default async function ServicesPage({ searchParams }) {
+async function ServicesContent({ searchParams }) {
   const params = await searchParams;
   const initialService = typeof params.type === "string" ? params.type : "All";
   return <CatalogPage kind="services" initialService={initialService} />;
+}
+
+export default function ServicesPage({ searchParams }) {
+  return (
+    <Suspense fallback={<p className="shop-message">Loading services…</p>}>
+      <ServicesContent searchParams={searchParams} />
+    </Suspense>
+  );
 }
