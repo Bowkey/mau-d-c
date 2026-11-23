@@ -1,7 +1,7 @@
 import CatalogPage from "@/components/catalog-page";
 
 export const metadata = {
-  title: "Styles | Mau Designs & Stitches",
+  title: "Styles | Mau Designs & Collections",
   description: "Explore sewn designs from Mau Designs & Collections.",
 };
 

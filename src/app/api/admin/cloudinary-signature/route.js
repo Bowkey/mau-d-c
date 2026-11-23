@@ -41,7 +41,7 @@ export async function POST(request) {
   const signatures = Array.from({ length: body.count }, () => {
     const params = {
       allowed_formats: "jpg,png,webp,avif",
-      folder: body.purpose === "ceo" ? "mau-stitches/ceo" : "mau-stitches/products",
+      folder: body.purpose === "ceo" ? "mau-Collections/ceo" : "mau-Collections/products",
       overwrite: false,
       public_id: randomUUID(),
       timestamp: Math.floor(Date.now() / 1000),

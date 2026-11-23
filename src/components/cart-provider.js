@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useSyncExternalStore } from "react";
 
-const STORAGE_KEY = "mau-stitches-cart";
+const STORAGE_KEY = "mau-Collections-cart";
 const CartContext = createContext(null);
 const SERVER_SNAPSHOT = { items: [], isReady: false };
 let cartSnapshot = SERVER_SNAPSHOT;

@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Mau Designs & Stitches",
+  title: "Mau Designs & Collections",
   description: "Contemporary fashion, thoughtfully made.",
 };
 

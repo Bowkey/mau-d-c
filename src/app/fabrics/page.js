@@ -1,8 +1,8 @@
 import CatalogPage from "@/components/catalog-page";
 
 export const metadata = {
-  title: "Fabrics | Mau Designs & Stitches",
-  description: "Explore fabrics available from Mau Designs & Stitches.",
+  title: "Fabrics | Mau Designs & Collections",
+  description: "Explore fabrics available from Mau Designs & Collections.",
 };
 
 export default function FabricsPage() {

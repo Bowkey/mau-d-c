@@ -23,7 +23,7 @@ export default function CartPage() {
   const closeImageViewer = useCallback(() => setViewingImage(null), []);
   const total = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const orderMessage = [
-    "Hello Mau Designs & Stitches! I'd like to order:",
+    "Hello Mau Designs & Collections! I'd like to order:",
     ...items.map((item, index) =>
       `${index + 1}. ${item.title} × ${item.quantity} — ${formatPrice(item.price)} each (${formatPrice(item.price * item.quantity)})`
     ),
