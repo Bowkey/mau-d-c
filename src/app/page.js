@@ -97,7 +97,10 @@ export default function Home() {
         return response.json();
       })
       .then((settings) => {
-        if (active) setCeoProfile(settings.ceoProfile);
+        if (active) {
+          setCeoProfile(settings.ceoProfile);
+          setCeoSettingsError(Boolean(settings.ceoProfileError));
+        }
       })
       .catch((error) => {
         console.error("Could not load CEO profile:", error);

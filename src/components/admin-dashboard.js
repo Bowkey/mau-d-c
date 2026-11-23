@@ -9,7 +9,12 @@ import {
   NAV_SECTIONS,
   PRODUCT_CATEGORIES,
 } from "@/lib/catalog";
-import { DEFAULT_CEO_PROFILE, DEFAULT_WHATSAPP_PHONE } from "@/lib/storefront-settings";
+import {
+  DEFAULT_ANNOUNCEMENT,
+  DEFAULT_CEO_PROFILE,
+  DEFAULT_SHOP_ADDRESS,
+  DEFAULT_WHATSAPP_PHONE,
+} from "@/lib/storefront-settings";
 import HeaderLogo from "./HeaderIcon";
 
 async function responseError(response, fallback) {
@@ -38,6 +43,11 @@ export default function AdminDashboard() {
   const [savingWhatsappPhone, setSavingWhatsappPhone] = useState(false);
   const [whatsappSettingsError, setWhatsappSettingsError] = useState("");
   const [whatsappSettingsNotice, setWhatsappSettingsNotice] = useState("");
+  const [announcement, setAnnouncement] = useState(DEFAULT_ANNOUNCEMENT);
+  const [shopAddress, setShopAddress] = useState(DEFAULT_SHOP_ADDRESS);
+  const [savingStorefrontDetails, setSavingStorefrontDetails] = useState(false);
+  const [storefrontDetailsError, setStorefrontDetailsError] = useState("");
+  const [storefrontDetailsNotice, setStorefrontDetailsNotice] = useState("");
   const [ceoProfile, setCeoProfile] = useState(DEFAULT_CEO_PROFILE);
   const [ceoImageFile, setCeoImageFile] = useState(null);
   const [ceoImagePreview, setCeoImagePreview] = useState("");
@@ -89,6 +99,8 @@ export default function AdminDashboard() {
       setWhatsappPhone(`+${data.whatsappPhone}`);
       setCeoProfile(data.ceoProfile);
       setCeoSettingsError(data.ceoProfileError || "");
+      setAnnouncement(data.announcement);
+      setShopAddress(data.shopAddress);
     } catch (settingsError) {
       setWhatsappSettingsError(settingsError.message);
       setCeoSettingsError(settingsError.message);
@@ -393,6 +405,29 @@ export default function AdminDashboard() {
     }
   }
 
+  async function saveStorefrontDetails(event) {
+    event.preventDefault();
+    setSavingStorefrontDetails(true);
+    setStorefrontDetailsError("");
+    setStorefrontDetailsNotice("");
+    try {
+      const response = await fetch("/api/admin/storefront-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ announcement, shopAddress }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "Storefront details could not be saved."));
+      const data = await response.json();
+      setAnnouncement(data.announcement);
+      setShopAddress(data.shopAddress);
+      setStorefrontDetailsNotice("Announcement and shop address updated.");
+    } catch (settingsError) {
+      setStorefrontDetailsError(settingsError.message);
+    } finally {
+      setSavingStorefrontDetails(false);
+    }
+  }
+
   async function logout() {
     await fetch("/api/admin/session", { method: "DELETE" });
     setAuthenticated(false);
@@ -467,6 +502,17 @@ export default function AdminDashboard() {
             </div>
             {whatsappSettingsError && <p className="form-error" role="alert">{whatsappSettingsError}</p>}
             {whatsappSettingsNotice && <p className="form-success" role="status">{whatsappSettingsNotice}</p>}
+          </form>
+        </section>
+        <section className="admin-panel">
+          <h2>Announcement and shop address</h2>
+          <p className="admin-hint">The announcement appears at the top of storefront pages; the shop address appears in the footer.</p>
+          <form className="product-form" onSubmit={saveStorefrontDetails}>
+            <label>Announcement<input maxLength={200} value={announcement} onChange={(event) => setAnnouncement(event.target.value)} required /></label>
+            <label>Shop address<input maxLength={250} value={shopAddress} onChange={(event) => setShopAddress(event.target.value)} required /></label>
+            {storefrontDetailsError && <p className="form-error" role="alert">{storefrontDetailsError}</p>}
+            {storefrontDetailsNotice && <p className="form-success" role="status">{storefrontDetailsNotice}</p>}
+            <button className="admin-primary" type="submit" disabled={savingStorefrontDetails}>{savingStorefrontDetails ? "Saving…" : "Save storefront details"}</button>
           </form>
         </section>
         <section className="admin-panel">

@@ -174,8 +174,11 @@ img { display: block; width: 100%; }
 .cart-whatsapp-button:hover { background: #116f3b; }
 .cart-copy-status { margin-bottom: 0; }
 
-footer { min-height: 150px; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; padding: 35px 5%; background: var(--ink); color: #fff; }
-footer > p { text-align: center; color: #aaa79f; font-size: 11px; }
+footer { min-height: 150px; display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: center; gap: 20px; padding: 35px 5%; background: var(--ink); color: #fff; }
+.footer-info { display: grid; justify-items: center; gap: 10px; text-align: center; }
+.footer-info > p { margin: 0; color: #aaa79f; font-size: 11px; }
+.footer-address { display: grid; gap: 4px; color: #aaa79f; font-size: 11px; font-style: normal; }
+.footer-address strong { color: #fff; font-size: 10px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; }
 .footer-brand { width: fit-content; }
 .footer-links { justify-self: end; display: flex; gap: 24px; font-size: 11px; }
 

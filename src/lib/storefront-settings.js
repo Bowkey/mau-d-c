@@ -4,6 +4,8 @@ export const DEFAULT_CEO_PROFILE = {
   description: "A native of Yenagoa, Nigeria, and a graduate of Niger Delta University (NDU).",
   image: "",
 };
+export const DEFAULT_ANNOUNCEMENT = "A little color, a lot of craft — made and designed by Blukware";
+export const DEFAULT_SHOP_ADDRESS = "White House Road, Agudama, Yenagoa";
 
 export function normalizeWhatsAppPhone(value) {
   if (typeof value !== "string" || !/^\+?[\d\s()-]+$/.test(value.trim())) {
@@ -40,4 +42,16 @@ export function normalizeCeoProfile(value) {
     description: description.trim(),
     image,
   };
+}
+
+export function normalizeAnnouncement(value) {
+  if (typeof value !== "string") return null;
+  const announcement = value.trim();
+  return announcement.length > 0 && announcement.length <= 200 ? announcement : null;
+}
+
+export function normalizeShopAddress(value) {
+  if (typeof value !== "string") return null;
+  const address = value.trim();
+  return address.length > 0 && address.length <= 250 ? address : null;
 }

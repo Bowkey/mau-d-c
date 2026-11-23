@@ -1,9 +1,10 @@
 "use client";
 import HeaderLogo from "./HeaderIcon.js";
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { CATEGORY_ROUTES, getCategoryLabel, NAV_SECTIONS } from "@/lib/catalog";
 import { useCart } from "@/components/cart-provider";
+import { DEFAULT_ANNOUNCEMENT } from "@/lib/storefront-settings";
 
 function HeaderIcon({ name }) {
   const paths = {
@@ -18,6 +19,7 @@ function HeaderIcon({ name }) {
 
 export default function StorefrontHeader({ categoryAvailability }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [announcement, setAnnouncement] = useState(DEFAULT_ANNOUNCEMENT);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchProducts, setSearchProducts] = useState([]);
@@ -38,6 +40,21 @@ export default function StorefrontHeader({ categoryAvailability }) {
       (product.description || "").toLocaleLowerCase().includes(query)
     );
   }, [searchProducts, searchQuery]);
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/storefront-settings")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("Storefront announcement could not be loaded.");
+        return response.json();
+      })
+      .then((settings) => {
+        if (active) setAnnouncement(settings.announcement);
+      })
+      .catch((error) => console.error("Could not load storefront announcement:", error));
+
+    return () => { active = false; };
+  }, []);
 
   async function loadSearchProducts() {
     setSearchLoading(true);
@@ -77,7 +94,7 @@ export default function StorefrontHeader({ categoryAvailability }) {
 
   return (
     <>
-      <div className="announcement">A little color, a lot of craft — made and designed by <a href="www.blukware.vercel.app"><u><b>Blukware</b></u></a></div>
+      <div className="announcement">{announcement}</div>
       <header className="header sticky top">
         <button className="icon-button mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu"><HeaderIcon name={menuOpen ? "close" : "menu"} /></button>
         <Link className="brand" href="/">
