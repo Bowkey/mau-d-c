@@ -18,7 +18,6 @@ function isValidCartItem(item) {
     Number.isSafeInteger(item.quantity) &&
     item.quantity > 0 &&
     Array.isArray(item.images) &&
-    item.images.length > 0 &&
     item.images.every((image) => typeof image === "string");
 }
 
@@ -99,7 +98,7 @@ function addItem(product) {
   const existing = current.find((item) => item.id === product.id);
   const items = existing
     ? current.map((item) => item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item)
-    : [...current, { ...product, quantity: 1 }];
+    : [...current, { ...product, images: Array.isArray(product.images) ? product.images : [], quantity: 1 }];
   replaceItems(items);
 }
 

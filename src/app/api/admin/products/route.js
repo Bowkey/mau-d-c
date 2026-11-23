@@ -2,30 +2,7 @@ import { NextResponse } from "next/server";
 import { isAdminAuthenticated } from "@/lib/admin-auth";
 import { getCategoryLabel, normalizeCategoryId, PRODUCT_CATEGORIES } from "@/lib/catalog";
 import { getAdminDb } from "@/lib/firebase-admin";
-
-function validProduct(body) {
-  const cloudName = process.env.CLOUDINARY_CLOUD_NAME;
-  return (
-    typeof body.title === "string" &&
-    body.title.trim().length > 0 &&
-    body.title.trim().length <= 120 &&
-    typeof body.description === "string" &&
-    body.description.trim().length > 0 &&
-    body.description.trim().length <= 2000 &&
-    Number.isSafeInteger(body.price) &&
-    body.price > 0 &&
-    body.price <= 100_000_000 &&
-    typeof body.isPublished === "boolean" &&
-    PRODUCT_CATEGORIES.some(({ id }) => id === body.category) &&
-    Array.isArray(body.images) &&
-    body.images.length >= 1 &&
-    body.images.length <= 5 &&
-    body.images.every((url) =>
-      typeof url === "string" &&
-      url.startsWith(`https://res.cloudinary.com/${cloudName}/image/upload/`)
-    )
-  );
-}
+import { isValidProduct } from "@/lib/product-validation";
 
 export async function GET() {
   try {
@@ -60,8 +37,8 @@ export async function POST(request) {
     return NextResponse.json({ error: "A valid JSON request is required." }, { status: 400 });
   }
 
-  if (!body || typeof body !== "object" || Array.isArray(body) || !validProduct(body)) {
-    return NextResponse.json({ error: "Check the product details and include 1–5 Cloudinary images." }, { status: 400 });
+  if (!body || typeof body !== "object" || Array.isArray(body) || !isValidProduct(body)) {
+    return NextResponse.json({ error: "Check the product details and include no more than 5 Cloudinary images." }, { status: 400 });
   }
 
   try {
@@ -70,7 +47,7 @@ export async function POST(request) {
       description: body.description.trim(),
       price: body.price,
       category: body.category,
-      images: body.images,
+      images: body.images ?? [],
       isPublished: body.isPublished,
       createdAt: Date.now(),
     };

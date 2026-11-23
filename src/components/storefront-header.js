@@ -1,8 +1,8 @@
 "use client";
 import HeaderLogo from "./HeaderIcon.js";
 import Link from "next/link";
-import { useState } from "react";
-import { NAV_SECTIONS } from "@/lib/catalog";
+import { useMemo, useState } from "react";
+import { CATEGORY_ROUTES, getCategoryLabel, NAV_SECTIONS } from "@/lib/catalog";
 import { useCart } from "@/components/cart-provider";
 
 function HeaderIcon({ name }) {
@@ -16,18 +16,69 @@ function HeaderIcon({ name }) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{paths[name]}</svg>;
 }
 
-export default function StorefrontHeader({ categoryAvailability, onSelectCategory }) {
+export default function StorefrontHeader({ categoryAvailability }) {
   const [menuOpen, setMenuOpen] = useState(false);
-  const { itemCount } = useCart();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchProducts, setSearchProducts] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchLoaded, setSearchLoaded] = useState(false);
+  const [searchError, setSearchError] = useState("");
+  const [searchNotice, setSearchNotice] = useState("");
+  const { itemCount, addItem } = useCart();
   const visibleNavSections = NAV_SECTIONS.filter((section) =>
     categoryAvailability[section.id] &&
     (!section.children || section.children.some((service) => categoryAvailability[service.id]))
   );
+  const matchingProducts = useMemo(() => {
+    const query = searchQuery.trim().toLocaleLowerCase();
+    if (!query) return [];
+    return searchProducts.filter((product) =>
+      product.title.toLocaleLowerCase().includes(query) ||
+      (product.description || "").toLocaleLowerCase().includes(query)
+    );
+  }, [searchProducts, searchQuery]);
+
+  async function loadSearchProducts() {
+    setSearchLoading(true);
+    setSearchError("");
+    try {
+      const response = await fetch("/api/products");
+      if (!response.ok) throw new Error("Products could not be loaded.");
+      const data = await response.json();
+      if (!Array.isArray(data.products)) throw new Error("The product list is invalid.");
+      setSearchProducts(data.products);
+      setSearchLoaded(true);
+    } catch (error) {
+      console.error("Could not load products for search:", error);
+      setSearchError("Search is temporarily unavailable. Please try again.");
+    } finally {
+      setSearchLoading(false);
+    }
+  }
+
+  function toggleSearch() {
+    if (searchOpen) {
+      setSearchOpen(false);
+      setSearchQuery("");
+      setSearchNotice("");
+      return;
+    }
+    setMenuOpen(false);
+    setSearchOpen(true);
+    setSearchNotice("");
+    if (!searchLoaded && !searchLoading) loadSearchProducts();
+  }
+
+  function addSearchResult(product) {
+    addItem(product);
+    setSearchNotice(`${product.title} added to your cart.`);
+  }
 
   return (
     <>
-      <div className="announcement">A little color, a lot of craft — made and found at Mau</div>
-      <header className="header">
+      <div className="announcement">A little color, a lot of craft — made and designed by <a href="www.blukware.vercel.app"><u><b>Blukware</b></u></a></div>
+      <header className="header sticky top">
         <button className="icon-button mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu"><HeaderIcon name={menuOpen ? "close" : "menu"} /></button>
         <Link className="brand" href="/">
         <HeaderLogo />
@@ -36,46 +87,60 @@ export default function StorefrontHeader({ categoryAvailability, onSelectCategor
         </Link>
         <nav className={menuOpen ? "nav nav-open" : "nav"} aria-label="Main navigation">
           {visibleNavSections.map((section) => section.children ? (
-            <div className="nav-service-group" key={section.id}>
-              <Link href="/services" onClick={() => setMenuOpen(false)}>{section.label}</Link>
-              <details className="nav-dropdown">
-                <summary aria-label="Choose a service"><span aria-hidden="true">⌄</span></summary>
-                <div className="nav-dropdown-menu">
-                  {section.children.filter((service) => categoryAvailability[service.id]).map((service) => (
-                    <Link href={`/services?type=${service.id}`} key={service.id} onClick={() => setMenuOpen(false)}>{service.label}</Link>
-                  ))}
-                </div>
-              </details>
-            </div>
+            <Link href="/services" key={section.id} onClick={() => setMenuOpen(false)}>{section.label}</Link>
           ) : (
             <Link
-              href={
-                section.id === "styles"
-                  ? "/styles"
-                  : section.id === "sewing-materials"
-                    ? "/sewing-materials"
-                    : `/?category=${section.id}#shop`
-              }
+              href={CATEGORY_ROUTES[section.id] || `/?category=${section.id}#shop`}
               key={section.id}
-              onClick={(event) => {
-                if (onSelectCategory && !["styles", "sewing-materials"].includes(section.id)) {
-                  event.preventDefault();
-                  onSelectCategory(section.id);
-                }
-                setMenuOpen(false);
-              }}
+              onClick={() => setMenuOpen(false)}
             >
               {section.label}
             </Link>
           ))}
         </nav>
         <div className="header-actions">
-          <button className="icon-button" aria-label="Search"><HeaderIcon name="search" /></button>
+          <button className="icon-button" type="button" onClick={toggleSearch} aria-label={searchOpen ? "Close search" : "Search"} aria-expanded={searchOpen} aria-controls="storefront-search-panel">
+            <HeaderIcon name={searchOpen ? "close" : "search"} />
+          </button>
           <button className="icon-button desktop-action" aria-label="Account"><HeaderIcon name="user" /></button>
           <Link className="icon-button bag-button" href="/cart" aria-label={`View cart with ${itemCount} items`}>
             <HeaderIcon name="bag" />{itemCount > 0 && <span className="cart-count">{itemCount}</span>}
           </Link>
         </div>
+        {searchOpen && <section className="search-panel" id="storefront-search-panel" role="search" aria-label="Search the shop">
+          <label htmlFor="storefront-search-input">Search products</label>
+          <input
+            id="storefront-search-input"
+            type="search"
+            list="storefront-search-items"
+            autoComplete="off"
+            autoFocus
+            placeholder="Type an item name…"
+            value={searchQuery}
+            onChange={(event) => {
+              setSearchQuery(event.target.value);
+              setSearchNotice("");
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") toggleSearch();
+            }}
+          />
+          <datalist id="storefront-search-items">
+            {searchProducts.map((product) => <option key={product.id} value={product.title} />)}
+          </datalist>
+          {searchLoading && <p className="search-feedback">Loading available products…</p>}
+          {searchError && <p className="search-feedback form-error" role="alert">{searchError}</p>}
+          {!searchLoading && !searchError && searchQuery.trim() && matchingProducts.length === 0 && <p className="search-feedback">No matching products found.</p>}
+          {matchingProducts.length > 0 && <div className="search-results" role="list" aria-label="Matching products">
+            {matchingProducts.map((product) => (
+              <div className="search-result" key={product.id} role="listitem">
+                <div><strong>{product.title}</strong><span>{getCategoryLabel(product.category)} · ₦{product.price.toLocaleString("en-NG")}</span></div>
+                <button type="button" onClick={() => addSearchResult(product)}>Add</button>
+              </div>
+            ))}
+          </div>}
+          {searchNotice && <p className="search-feedback form-success" role="status">{searchNotice}</p>}
+        </section>}
       </header>
     </>
   );

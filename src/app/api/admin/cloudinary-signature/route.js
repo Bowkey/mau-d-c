@@ -15,7 +15,15 @@ export async function POST(request) {
     return NextResponse.json({ error: "A valid JSON request is required." }, { status: 400 });
   }
 
-  if (!body || typeof body !== "object" || Array.isArray(body) || !Number.isInteger(body.count) || body.count < 1 || body.count > 5) {
+  if (
+    !body ||
+    typeof body !== "object" ||
+    Array.isArray(body) ||
+    !Number.isInteger(body.count) ||
+    body.count < 1 ||
+    body.count > 5 ||
+    (body.purpose !== undefined && !["products", "ceo"].includes(body.purpose))
+  ) {
     return NextResponse.json({ error: "Request between 1 and 5 image signatures." }, { status: 400 });
   }
 
@@ -33,7 +41,7 @@ export async function POST(request) {
   const signatures = Array.from({ length: body.count }, () => {
     const params = {
       allowed_formats: "jpg,png,webp,avif",
-      folder: "mau-stitches/products",
+      folder: body.purpose === "ceo" ? "mau-stitches/ceo" : "mau-stitches/products",
       overwrite: false,
       public_id: randomUUID(),
       timestamp: Math.floor(Date.now() / 1000),

@@ -9,7 +9,8 @@ import {
   NAV_SECTIONS,
   PRODUCT_CATEGORIES,
 } from "@/lib/catalog";
-import { DEFAULT_WHATSAPP_PHONE } from "@/lib/storefront-settings";
+import { DEFAULT_CEO_PROFILE, DEFAULT_WHATSAPP_PHONE } from "@/lib/storefront-settings";
+import HeaderLogo from "./HeaderIcon";
 
 async function responseError(response, fallback) {
   const body = await response.json().catch(() => ({}));
@@ -22,10 +23,14 @@ export default function AdminDashboard() {
   const [password, setPassword] = useState("");
   const [products, setProducts] = useState([]);
   const [files, setFiles] = useState([]);
+  const [existingImages, setExistingImages] = useState([]);
+  const [editingProductId, setEditingProductId] = useState("");
   const [form, setForm] = useState({ title: "", description: "", price: "", category: "styles", isPublished: true });
   const [loadingProducts, setLoadingProducts] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [updatingId, setUpdatingId] = useState("");
+  const [inventoryError, setInventoryError] = useState("");
+  const [inventoryNotice, setInventoryNotice] = useState("");
   const [categoryAvailability, setCategoryAvailability] = useState(DEFAULT_CATEGORY_VISIBILITY);
   const [updatingCategory, setUpdatingCategory] = useState("");
   const [categorySettingsError, setCategorySettingsError] = useState("");
@@ -33,12 +38,20 @@ export default function AdminDashboard() {
   const [savingWhatsappPhone, setSavingWhatsappPhone] = useState(false);
   const [whatsappSettingsError, setWhatsappSettingsError] = useState("");
   const [whatsappSettingsNotice, setWhatsappSettingsNotice] = useState("");
+  const [ceoProfile, setCeoProfile] = useState(DEFAULT_CEO_PROFILE);
+  const [ceoImageFile, setCeoImageFile] = useState(null);
+  const [ceoImagePreview, setCeoImagePreview] = useState("");
+  const [savingCeoProfile, setSavingCeoProfile] = useState(false);
+  const [ceoSettingsError, setCeoSettingsError] = useState("");
+  const [ceoSettingsNotice, setCeoSettingsNotice] = useState("");
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const previewUrls = useRef(new Set());
+  const ceoPreviewUrl = useRef("");
 
   useEffect(() => () => {
     previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    if (ceoPreviewUrl.current) URL.revokeObjectURL(ceoPreviewUrl.current);
   }, []);
 
   async function loadProducts() {
@@ -67,15 +80,18 @@ export default function AdminDashboard() {
     }
   }
 
-  async function loadWhatsAppSettings() {
+  async function loadStorefrontSettings() {
     setWhatsappSettingsError("");
     try {
       const response = await fetch("/api/admin/storefront-settings");
-      if (!response.ok) throw new Error(await responseError(response, "WhatsApp settings could not be loaded."));
+      if (!response.ok) throw new Error(await responseError(response, "Storefront settings could not be loaded."));
       const data = await response.json();
       setWhatsappPhone(`+${data.whatsappPhone}`);
+      setCeoProfile(data.ceoProfile);
+      setCeoSettingsError(data.ceoProfileError || "");
     } catch (settingsError) {
       setWhatsappSettingsError(settingsError.message);
+      setCeoSettingsError(settingsError.message);
     }
   }
 
@@ -91,7 +107,7 @@ export default function AdminDashboard() {
           setAuthenticated(true);
           loadProducts();
           loadCategoryAvailability();
-          loadWhatsAppSettings();
+          loadStorefrontSettings();
         }
       })
       .catch((sessionError) => {
@@ -115,7 +131,7 @@ export default function AdminDashboard() {
       if (!response.ok) throw new Error(await responseError(response, "Could not sign in."));
       setPassword("");
       setAuthenticated(true);
-      await Promise.all([loadProducts(), loadCategoryAvailability(), loadWhatsAppSettings()]);
+      await Promise.all([loadProducts(), loadCategoryAvailability(), loadStorefrontSettings()]);
     } catch (loginError) {
       setError(loginError.message);
     }
@@ -124,7 +140,7 @@ export default function AdminDashboard() {
   function chooseFiles(event) {
     const selected = Array.from(event.target.files || []);
     event.target.value = "";
-    if (files.length + selected.length > 5) {
+    if (files.length + existingImages.length + selected.length > 5) {
       setError("A product can have up to 5 images.");
       return;
     }
@@ -141,15 +157,46 @@ export default function AdminDashboard() {
     })]);
   }
 
-  async function uploadImages() {
+  function clearProductForm() {
+    previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls.current.clear();
+    setFiles([]);
+    setExistingImages([]);
+    setEditingProductId("");
+    setForm({ title: "", description: "", price: "", category: "styles", isPublished: true });
+  }
+
+  function startEditing(product) {
+    previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
+    previewUrls.current.clear();
+    setFiles([]);
+    setEditingProductId(product.id);
+    setExistingImages(Array.isArray(product.images) ? product.images : []);
+    setForm({
+      title: product.title,
+      description: product.description,
+      price: String(product.price),
+      category: product.category,
+      isPublished: product.isPublished,
+    });
+    setError("");
+    setNotice("");
+    document.getElementById("product-editor")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }
+
+  function removeExistingImage(index) {
+    setExistingImages((current) => current.filter((_, imageIndex) => imageIndex !== index));
+  }
+
+  async function uploadImageFiles(selectedFiles, purpose) {
     const signatureResponse = await fetch("/api/admin/cloudinary-signature", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ count: files.length }),
+      body: JSON.stringify({ count: selectedFiles.length, purpose }),
     });
     if (!signatureResponse.ok) throw new Error(await responseError(signatureResponse, "Could not prepare image upload."));
     const { cloudName, apiKey, signatures } = await signatureResponse.json();
-    return Promise.all(files.map(async ({ file }, index) => {
+    return Promise.all(selectedFiles.map(async (file, index) => {
       const signature = signatures[index];
       const data = new FormData();
       data.append("file", file);
@@ -171,34 +218,119 @@ export default function AdminDashboard() {
     }));
   }
 
-  async function createProduct(event) {
+  async function uploadImages() {
+    return uploadImageFiles(files.map(({ file }) => file), "products");
+  }
+
+  function chooseCeoImage(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    if (!["image/jpeg", "image/png", "image/webp", "image/avif"].includes(file.type) || file.size > 10 * 1024 * 1024) {
+      setCeoSettingsError("Choose a JPG, PNG, WebP, or AVIF image under 10 MB.");
+      return;
+    }
+
+    if (ceoPreviewUrl.current) URL.revokeObjectURL(ceoPreviewUrl.current);
+    const preview = URL.createObjectURL(file);
+    ceoPreviewUrl.current = preview;
+    setCeoImageFile(file);
+    setCeoImagePreview(preview);
+    setCeoSettingsError("");
+    setCeoSettingsNotice("");
+  }
+
+  function removeCeoImage() {
+    if (ceoPreviewUrl.current) URL.revokeObjectURL(ceoPreviewUrl.current);
+    ceoPreviewUrl.current = "";
+    setCeoImageFile(null);
+    setCeoImagePreview("");
+    setCeoProfile((current) => ({ ...current, image: "" }));
+  }
+
+  async function saveCeoProfile(event) {
+    event.preventDefault();
+    setSavingCeoProfile(true);
+    setCeoSettingsError("");
+    setCeoSettingsNotice("");
+    try {
+      const image = ceoImageFile
+        ? (await uploadImageFiles([ceoImageFile], "ceo"))[0]
+        : ceoProfile.image;
+      const response = await fetch("/api/admin/storefront-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ceoProfile: { ...ceoProfile, image } }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "The CEO profile could not be saved."));
+      const data = await response.json();
+      setCeoProfile(data.ceoProfile);
+      if (ceoPreviewUrl.current) URL.revokeObjectURL(ceoPreviewUrl.current);
+      ceoPreviewUrl.current = "";
+      setCeoImageFile(null);
+      setCeoImagePreview("");
+      setCeoSettingsNotice("CEO profile updated.");
+    } catch (settingsError) {
+      setCeoSettingsError(settingsError.message);
+    } finally {
+      setSavingCeoProfile(false);
+    }
+  }
+
+  async function saveProduct(event) {
     event.preventDefault();
     setError("");
     setNotice("");
-    if (files.length < 1 || files.length > 5) {
-      setError("Choose between 1 and 5 product images.");
+    const imageCount = existingImages.length + files.length;
+    if (imageCount > 5) {
+      setError("A product can have up to 5 images.");
       return;
     }
 
     setSubmitting(true);
     try {
-      const images = await uploadImages();
-      const response = await fetch("/api/admin/products", {
-        method: "POST",
+      const uploadedImages = files.length > 0 ? await uploadImages() : [];
+      const images = [...existingImages, ...uploadedImages];
+      const isEditing = Boolean(editingProductId);
+      const response = await fetch(isEditing ? `/api/admin/products/${editingProductId}` : "/api/admin/products", {
+        method: isEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ...form, price: Number(form.price), images }),
       });
       if (!response.ok) throw new Error(await responseError(response, "The product could not be saved."));
-      setForm({ title: "", description: "", price: "", category: "styles", isPublished: true });
-      previewUrls.current.forEach((url) => URL.revokeObjectURL(url));
-      previewUrls.current.clear();
-      setFiles([]);
-      setNotice(form.isPublished ? "Product created and published." : "Product saved as a draft.");
+      clearProductForm();
+      setNotice(isEditing ? "Product updated." : form.isPublished ? "Product created and published." : "Product saved as a draft.");
       await loadProducts();
     } catch (submitError) {
       setError(submitError.message);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  function cancelEditing() {
+    clearProductForm();
+    setError("");
+    setNotice("");
+  }
+
+  async function deleteProduct(product) {
+    const confirmed = window.confirm(`Delete "${product.title}"? This will remove it from your inventory and the storefront.`);
+    if (!confirmed) return;
+
+    setUpdatingId(product.id);
+    setInventoryError("");
+    setInventoryNotice("");
+    try {
+      const response = await fetch(`/api/admin/products/${product.id}`, { method: "DELETE" });
+      if (!response.ok) throw new Error(await responseError(response, "The product could not be deleted."));
+      setProducts((current) => current.filter((item) => item.id !== product.id));
+      if (editingProductId === product.id) clearProductForm();
+      setInventoryNotice("Product deleted.");
+    } catch (deleteError) {
+      setInventoryError(deleteError.message);
+    } finally {
+      setUpdatingId("");
     }
   }
 
@@ -280,7 +412,7 @@ export default function AdminDashboard() {
     return (
       <main className="admin-screen">
         <form className="login-card" onSubmit={login}>
-          <Link className="brand" href="/">MAU<span>DESIGNS</span></Link>
+          <Link className="brand" href="/"><HeaderLogo /></Link>
           <p className="eyebrow">ADMIN ACCESS</p>
           <h1>Welcome back</h1>
           <label htmlFor="admin-password">Admin password</label>
@@ -296,7 +428,7 @@ export default function AdminDashboard() {
   return (
     <main className="admin-screen admin-screen-wide">
       <header className="admin-header">
-        <Link className="brand" href="/">MAU<span>DESIGNS</span></Link>
+        <Link className="brand" href="/"><HeaderLogo /></Link>
         <div><Link href="/">View shop</Link><button type="button" onClick={logout}>Sign out</button></div>
       </header>
       <div className="admin-content">
@@ -338,37 +470,75 @@ export default function AdminDashboard() {
           </form>
         </section>
         <section className="admin-panel">
-          <h2>Create a product post</h2>
-          <p className="admin-hint">Add your design details and up to five photos. Publish now or save it as a draft.</p>
-          <form onSubmit={createProduct} className="product-form">
+          <h2>CEO profile</h2>
+          <p className="admin-hint">Update the CEO introduction and upload a portrait for the homepage.</p>
+          <form className="product-form" onSubmit={saveCeoProfile}>
+            <label>CEO name<input maxLength={120} value={ceoProfile.name} onChange={(event) => setCeoProfile({ ...ceoProfile, name: event.target.value })} required /></label>
+            <label>Short description<textarea maxLength={1000} rows={3} value={ceoProfile.description} onChange={(event) => setCeoProfile({ ...ceoProfile, description: event.target.value })} required /></label>
+            <label className="image-picker">CEO portrait <span>JPG, PNG, WebP, or AVIF · 10 MB max</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" onChange={chooseCeoImage} disabled={savingCeoProfile} />
+            </label>
+            {(ceoImagePreview || ceoProfile.image) && <div className="ceo-image-preview">
+              <Image src={ceoImagePreview || ceoProfile.image} alt="CEO portrait preview" width={140} height={170} sizes="140px" unoptimized={Boolean(ceoImagePreview)} />
+              <button className="admin-secondary" type="button" onClick={removeCeoImage} disabled={savingCeoProfile}>Remove photo</button>
+            </div>}
+            {ceoSettingsError && <p className="form-error" role="alert">{ceoSettingsError}</p>}
+            {ceoSettingsNotice && <p className="form-success" role="status">{ceoSettingsNotice}</p>}
+            <button className="admin-primary" type="submit" disabled={savingCeoProfile}>{savingCeoProfile ? "Uploading and saving…" : "Save CEO profile"}</button>
+          </form>
+        </section>
+        <section className="admin-panel" id="product-editor">
+          <h2>{editingProductId ? "Edit product" : "Create a product post"}</h2>
+          <p className="admin-hint">{editingProductId ? "Update the product details, photos, or publication status." : "Add your design details and optionally upload up to five photos. Publish now or save it as a draft."}</p>
+          <form onSubmit={saveProduct} className="product-form">
             <label>Product name<input maxLength={120} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></label>
             <label>Description<textarea maxLength={2000} rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></label>
             <div className="form-row">
               <label>Price (₦)<input type="number" min="1" max="100000000" step="1" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /></label>
               <label>Category<select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{PRODUCT_CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.label}{!isCategoryAvailable(category.id, categoryAvailability) ? " (unavailable)" : ""}</option>)}</select></label>
             </div>
-            <label className="image-picker">Product photos <span>JPG, PNG, WebP, AVIF · 10 MB max each · {files.length}/5 selected</span>
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple onChange={chooseFiles} disabled={files.length >= 5} />
+            <label className="image-picker">Product photos <span>Optional · JPG, PNG, WebP, AVIF · 10 MB max each · {existingImages.length + files.length}/5 selected</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple onChange={chooseFiles} disabled={existingImages.length + files.length >= 5} />
             </label>
-            {files.length > 0 && <div className="preview-grid">{files.map(({ url }, index) => <div className="preview-item" key={url}><Image src={url} alt={`Product preview ${index + 1}`} width={92} height={108} unoptimized /><button type="button" onClick={() => removeFile(index)} aria-label={`Remove image ${index + 1}`}>×</button></div>)}</div>}
+            {(existingImages.length > 0 || files.length > 0) && <div className="preview-grid">
+              {existingImages.map((url, index) => <div className="preview-item" key={`existing-${url}-${index}`}>
+                <Image src={url} alt={`Current product photo ${index + 1}`} width={92} height={108} sizes="92px" />
+                <button type="button" onClick={() => removeExistingImage(index)} aria-label={`Remove current image ${index + 1}`}>×</button></div>)}
+              {files.map(({ url }, index) => 
+              <div className="preview-item" key={url}><Image src={url} alt={`New product photo ${index + 1}`} width={92} height={108} unoptimized /><button type="button" onClick={() => removeFile(index)} aria-label={`Remove new image ${index + 1}`}>×</button></div>)}
+            </div>}
             <label className="publish-option"><input type="checkbox" checked={form.isPublished} onChange={(event) => setForm({ ...form, isPublished: event.target.checked })} /> Publish this product to the storefront</label>
             {error && <p className="form-error" role="alert">{error}</p>}
             {notice && <p className="form-success" role="status">{notice}</p>}
-            <button className="admin-primary" type="submit" disabled={submitting}>{submitting ? "Uploading and saving…" : "Create product"}</button>
+            <div className="product-form-actions">
+              <button className="admin-primary" type="submit" disabled={submitting}>{submitting ? "Uploading and saving…" : editingProductId ? "Save changes" : "Create product"}</button>
+              {editingProductId && <button className="admin-secondary" type="button" onClick={cancelEditing} disabled={submitting}>Cancel</button>}
+            </div>
           </form>
         </section>
 
         <section className="admin-panel inventory-panel">
           <div className="inventory-heading"><h2>Product inventory</h2><button onClick={loadProducts} disabled={loadingProducts}>{loadingProducts ? "Refreshing…" : "Refresh"}</button></div>
+          {inventoryError && <p className="form-error" role="alert">{inventoryError}</p>}
+          {inventoryNotice && <p className="form-success" role="status">{inventoryNotice}</p>}
           {products.length === 0 && !loadingProducts ? <p className="admin-hint">No products yet. Create your first post above.</p> : <div className="inventory-list">
-            {products.map((product) => (
-              <article className="inventory-item" key={product.id}>
-                <Image src={product.images[0]} alt="" width={128} height={152} sizes="64px" />
-                <div className="inventory-info"><h3>{product.title}</h3><p>₦{product.price.toLocaleString("en-NG")} · {product.categoryLabel} · {product.images.length} {product.images.length === 1 ? "photo" : "photos"}</p></div>
-                <span className={product.isPublished ? "status-published" : "status-draft"}>{product.isPublished ? "Published" : "Draft"}</span>
-                <button className="status-toggle" type="button" onClick={() => togglePublication(product)} disabled={updatingId === product.id}>{updatingId === product.id ? "Updating…" : product.isPublished ? "Unpublish" : "Publish"}</button>
-              </article>
-            ))}
+            {products.map((product) => {
+              const images = Array.isArray(product.images) ? product.images : [];
+              return (
+                <article className="inventory-item" key={product.id}>
+                  {images[0]
+                    ? <Image src={images[0]} alt="" width={128} height={152} sizes="64px" />
+                    : <div className="inventory-image-placeholder" aria-label="No product photo">MAU</div>}
+                  <div className="inventory-info"><h3>{product.title}</h3><p>₦{product.price.toLocaleString("en-NG")} · {product.categoryLabel} · {images.length} {images.length === 1 ? "photo" : "photos"}</p></div>
+                  <span className={product.isPublished ? "status-published" : "status-draft"}>{product.isPublished ? "Published" : "Draft"}</span>
+                  <div className="inventory-actions">
+                    <button className="status-toggle" type="button" onClick={() => startEditing(product)} disabled={Boolean(updatingId) || submitting}>Edit</button>
+                    <button className="status-toggle" type="button" onClick={() => togglePublication(product)} disabled={Boolean(updatingId) || submitting}>{updatingId === product.id ? "Updating…" : product.isPublished ? "Unpublish" : "Publish"}</button>
+                    <button className="status-toggle danger-button" type="button" onClick={() => deleteProduct(product)} disabled={Boolean(updatingId) || submitting}>{updatingId === product.id ? "Working…" : "Delete"}</button>
+                  </div>
+                </article>
+              );
+            })}
           </div>}
         </section>
       </div>

@@ -7,12 +7,18 @@ const serviceCategories = [
 
 export const NAV_SECTIONS = [
   { id: "styles", label: "Styles", description: "All sewn designs" },
-  { id: "sewing-materials", label: "Sewing materials", description: "Tools and supplies for every project" },
   { id: "fabrics", label: "Fabrics", description: "Find the right fabric for your next design" },
   { id: "sewing-accessories", label: "Sewing accessories", description: "Threads, zips, needles, tapes and more" },
   { id: "sewing-machine-parts", label: "Sewing machine Parts", description: "Needles, plates, ropes, reels and more" },
-  // { id: "services", label: "Services", description: "Sewing, amendment, training and weaving", children: serviceCategories },
+  { id: "services", label: "Services", description: "Sewing, amendment, training and weaving", children: serviceCategories },
 ];
+
+export const CATEGORY_ROUTES = {
+  styles: "/styles",
+  fabrics: "/fabrics",
+  "sewing-accessories": "/sewing-accessories",
+  "sewing-machine-parts": "/sewing-machine-parts",
+};
 
 export const PRODUCT_CATEGORIES = NAV_SECTIONS
   .filter((section) => !section.children)

@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useState } from "react";
 import ProductCard from "@/components/product-card";
 import StorefrontFooter from "@/components/storefront-footer";
@@ -9,17 +10,18 @@ import Logo1 from "@/components/logo1";
 import { useCart } from "@/components/cart-provider";
 import {
   DEFAULT_CATEGORY_VISIBILITY,
+  CATEGORY_ROUTES,
   isCategoryAvailable,
   NAV_SECTIONS,
   PRODUCT_CATEGORIES,
 } from "@/lib/catalog";
+import { DEFAULT_CEO_PROFILE } from "@/lib/storefront-settings";
 
 const categoryArtwork = {
-  styles: ["Made-to-measure pieces", "https://images.unsplash.com/flagged/photo-1578905326519-3aa98aa6a728?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"],
-  "sewing-materials": ["Tools for every project", "https://images.unsplash.com/photo-1578353022142-09264fd64295?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"],
+  styles: ["Made-to-measure pieces", "https://images.unsplash.com/flagged/photo-1578905326519-3aa98aa6a728?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D", ],
   fabrics: ["Color, texture, possibility", "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSb7aaqXeTovNfnjJ-suFsl31v4IgoDkEbEX09L8Y10sQ&s"],
-  "sewing-accessories": ["Finishing touches", "https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=700&q=82"],
-  "sewing-machine-parts": ["Keep your machine moving", "https://images.unsplash.com/photo-1520639888713-7851133b1ed0?auto=format&fit=crop&w=700&q=82"],
+  "sewing-accessories": ["Finishing touches", "https://images.unsplash.com/photo-1578353022142-09264fd64295?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"],
+  "sewing-machine-parts": ["Keep your machine moving", "https://images.unsplash.com/photo-1762006496603-dec2ddd55b17?w=600&auto=format&fit=crop&q=60&ixlib=rb-4.1.0&ixid=NHwxMjA3fDA%3D"],
 };
 
 function Icon({ name, size = 20 }) {
@@ -45,6 +47,8 @@ export default function Home() {
   const [category, setCategory] = useState("All");
   const [email, setEmail] = useState("");
   const [subscribed, setSubscribed] = useState(false);
+  const [ceoProfile, setCeoProfile] = useState(DEFAULT_CEO_PROFILE);
+  const [ceoSettingsError, setCeoSettingsError] = useState(false);
 
   const visibleProducts = category === "All"
     ? products
@@ -85,10 +89,23 @@ export default function Home() {
       .catch(() => setCategoriesError(true));
   }, []);
 
-  function selectCategory(id) {
-    setCategory(id);
-    document.getElementById("shop")?.scrollIntoView({ behavior: "smooth" });
-  }
+  useEffect(() => {
+    let active = true;
+    fetch("/api/storefront-settings")
+      .then(async (response) => {
+        if (!response.ok) throw new Error("CEO profile could not be loaded.");
+        return response.json();
+      })
+      .then((settings) => {
+        if (active) setCeoProfile(settings.ceoProfile);
+      })
+      .catch((error) => {
+        console.error("Could not load CEO profile:", error);
+        if (active) setCeoSettingsError(true);
+      });
+
+    return () => { active = false; };
+  }, []);
 
   function subscribe(event) {
     event.preventDefault();
@@ -100,7 +117,7 @@ export default function Home() {
 
   return (
     <main>
-      <StorefrontHeader categoryAvailability={categoryAvailability} onSelectCategory={selectCategory} />
+      <StorefrontHeader categoryAvailability={categoryAvailability} />
 
       <section className="hero">
         <Logo1 />
@@ -113,12 +130,12 @@ export default function Home() {
       </section>
 
       <section className="category-strip" aria-label="Shop categories">
-        {visibleNavSections.filter((section) => !section.children).slice(0, 3).map((section) => (
-          <button className="category-card" key={section.id} onClick={() => selectCategory(section.id)}>
+        {visibleNavSections.filter((section) => !section.children).map((section) => (
+          <Link className="category-card" key={section.id} href={CATEGORY_ROUTES[section.id] || `/?category=${section.id}#shop`}>
             <Image src={categoryArtwork[section.id][1]} alt="" width={700} height={850} sizes="(max-width: 900px) 92px, 116px" />
             <span><b>{section.label}</b><small>{categoryArtwork[section.id][0]}</small></span>
             <span className="category-arrow"><Icon name="arrow" size={18} /></span>
-          </button>
+          </Link>
         ))}
       </section>
 
@@ -127,7 +144,15 @@ export default function Home() {
           <div><p className="eyebrow">CURATED FOR YOU</p><h2>Most loved</h2></div>
           <div className="filters" aria-label="Filter products">
             <button className={category === "All" ? "active" : ""} onClick={() => setCategory("All")}>All</button>
-            {visibleCategoryFilters.map((item) => <button key={item.id} className={category === item.id ? "active" : ""} onClick={() => setCategory(item.id)}>{item.label}</button>)}
+            {visibleCategoryFilters.map((item) => (
+              <Link
+                key={item.id}
+                className={category === item.id ? "active" : ""}
+                href={CATEGORY_ROUTES[item.id] || `/services?type=${encodeURIComponent(item.id)}`}
+              >
+                {item.label}
+              </Link>
+            ))}
           </div>
         </div>
         <div className="product-grid">
@@ -140,11 +165,25 @@ export default function Home() {
       </section>
 
       <section className="story" id="story">
-        <div className="story-image"><Image src="https://images.unsplash.com/photo-1558769132-cb1aea458c5e?auto=format&fit=crop&w=1000&q=85" alt="Designer working in a fashion studio" width={1000} height={1000} sizes="(max-width: 900px) 100vw, 50vw" /></div>
+        <div className="story-image"><Image src="https://media.istockphoto.com/id/2166891287/photo/rajasthani-womens-clothes-are-hanging-for-sale-being-displayed-in-a-shop-at-famous-sardar.webp?a=1&b=1&s=612x612&w=0&k=20&c=_O0ZPoYXkNl4J7urlZ6v9lvpPjcVLS2M6pMa_blEL48=" alt="Designer working in a fashion studio" width={1000} height={1000} sizes="(max-width: 900px) 100vw, 50vw" /></div>
         <div className="story-copy">
           <p className="eyebrow">OUR STORY</p><h2>Designed with heart,<br /><em>made with purpose.</em></h2>
           <p>Mau Designs began with a simple belief: every woman deserves to feel seen, celebrated, and completely herself. From the first sketch to the final stitch, each piece is created with care and intention.</p>
           <a className="text-link" href="#footer">Discover our story <Icon name="arrow" /></a>
+        </div>
+      </section>
+
+      <section className="ceo-section" aria-labelledby="ceo-heading">
+        <div className="ceo-photo">
+          {ceoProfile.image
+            ? <Image src={ceoProfile.image} alt={ceoProfile.name} fill sizes="(max-width: 900px) 100vw, 42vw" />
+            : <div className="ceo-photo-placeholder" aria-hidden="true"><span>MAU</span></div>}
+        </div>
+        <div className="ceo-copy">
+          <p className="eyebrow">MEET OUR CEO</p>
+          <h2 id="ceo-heading">{ceoProfile.name}</h2>
+          <p>{ceoProfile.description}</p>
+          {ceoSettingsError && <p className="ceo-settings-note" role="status">Showing the default CEO profile; saved profile details could not be loaded.</p>}
         </div>
       </section>
 

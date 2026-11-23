@@ -13,7 +13,7 @@ import StorefrontHeader from "@/components/storefront-header";
 import { useCart } from "@/components/cart-provider";
 
 export default function CatalogPage({ kind, categoryId, initialService = "All" }) {
-  const listingCategoryId = kind === "sewing-materials" ? "sewing-materials" : categoryId;
+  const listingCategoryId = categoryId;
   const [products, setProducts] = useState([]);
   const [availability, setAvailability] = useState(DEFAULT_CATEGORY_VISIBILITY);
   const [selectedService, setSelectedService] = useState(initialService);
