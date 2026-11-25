@@ -38,7 +38,7 @@ function Icon({ name, size = 20 }) {
 }
 
 export default function Home() {
-  const { addItem } = useCart();
+  const { addToBag } = useCart();
   const [products, setProducts] = useState([]);
   const [productsLoading, setProductsLoading] = useState(true);
   const [productsError, setProductsError] = useState(false);
@@ -126,7 +126,7 @@ export default function Home() {
         <Logo1 />
         <div className="hero-content">
           <p className="eyebrow">FABRIC, FINESSE & A LITTLE JOY</p>
-          <h1>Make room<br />for <em>color.</em></h1>
+          <h1>Make room<br />for <em>Fashion.</em></h1>
           <p className="hero-copy">Sewn-with-love styles, beautiful fabrics, and all the little things that bring your next idea to life.</p>
           <a className="primary-button" href="#shop">Explore the shop <Icon name="arrow" /></a>
         </div>
@@ -159,7 +159,7 @@ export default function Home() {
           </div>
         </div>
         <div className="product-grid">
-          {visibleProducts.map((product) => <ProductCard key={product.id} product={product} onAddToBag={addItem} />)}
+          {visibleProducts.map((product) => <ProductCard key={product.id} product={product} onAddToBag={addToBag} />)}
         </div>
         {!productsLoading && productsError && <p className="shop-message" role="status">Products are temporarily unavailable. Please try again later.</p>}
         {categoriesError && <p className="shop-message" role="status">Shop sections could not be refreshed; showing the default sections.</p>}

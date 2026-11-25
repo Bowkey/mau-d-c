@@ -468,29 +468,61 @@ export default function AdminDashboard() {
       </header>
       <div className="admin-content">
         <div className="admin-title"><div><p className="eyebrow">YOUR ATELIER</p><h1>Product studio</h1></div><p>{products.length} {products.length === 1 ? "product" : "products"}</p></div>
-        <section className="admin-panel availability-panel">
-          <h2>Shop sections</h2>
-          <p className="admin-hint">Choose which sections appear in the shop navigation. Sections start available; hiding one also hides its products from the storefront.</p>
-          {categorySettingsError && <p className="form-error" role="alert">{categorySettingsError}</p>}
-          <div className="category-settings">
-            {NAV_SECTIONS.map((section) => (
-              <div className="category-setting-group" key={section.id}>
-                <label className="category-setting">
-                  <span><strong>{section.label}</strong><small>{section.description}</small></span>
-                  <input type="checkbox" checked={categoryAvailability[section.id]} disabled={updatingCategory === section.id} onChange={() => toggleCategory(section.id)} aria-label={`${section.label} available in the shop`} />
-                </label>
-                {section.children && <div className="service-settings">
-                  {section.children.map((service) => (
-                    <label className="category-setting service-setting" key={service.id}>
-                      <span><strong>{service.label}</strong></span>
-                      <input type="checkbox" checked={categoryAvailability[service.id]} disabled={updatingCategory === service.id || !categoryAvailability[section.id]} onChange={() => toggleCategory(service.id)} aria-label={`${service.label} available in the shop`} />
-                    </label>
-                  ))}
-                </div>}
-              </div>
-            ))}
-          </div>
+
+        <section className="admin-panel" id="product-editor">
+          <h2>{editingProductId ? "Edit product" : "Create a product post"}</h2>
+          <p className="admin-hint">{editingProductId ? "Update the product details, photos, or publication status." : "Add your design details and optionally upload up to five photos. Publish now or save it as a draft."}</p>
+          <form onSubmit={saveProduct} className="product-form">
+            <label>Product name<input maxLength={120} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></label>
+            <label>Description<textarea maxLength={2000} rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></label>
+            <div className="form-row">
+              <label>Price (₦)<input type="number" min="1" max="100000000" step="1" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /></label>
+              <label>Category<select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{PRODUCT_CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.label}{!isCategoryAvailable(category.id, categoryAvailability) ? " (unavailable)" : ""}</option>)}</select></label>
+            </div>
+            <label className="image-picker">Product photos <span>Optional · JPG, PNG, WebP, AVIF · 10 MB max each · {existingImages.length + files.length}/5 selected</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple onChange={chooseFiles} disabled={existingImages.length + files.length >= 5} />
+            </label>
+            {(existingImages.length > 0 || files.length > 0) && <div className="preview-grid">
+              {existingImages.map((url, index) => <div className="preview-item" key={`existing-${url}-${index}`}>
+                <Image src={url} alt={`Current product photo ${index + 1}`} width={92} height={108} sizes="92px" />
+                <button type="button" onClick={() => removeExistingImage(index)} aria-label={`Remove current image ${index + 1}`}>×</button></div>)}
+              {files.map(({ url }, index) => 
+              <div className="preview-item" key={url}><Image src={url} alt={`New product photo ${index + 1}`} width={92} height={108} unoptimized /><button type="button" onClick={() => removeFile(index)} aria-label={`Remove new image ${index + 1}`}>×</button></div>)}
+            </div>}
+            <label className="publish-option"><input type="checkbox" checked={form.isPublished} onChange={(event) => setForm({ ...form, isPublished: event.target.checked })} /> Publish this product to the storefront</label>
+            {error && <p className="form-error" role="alert">{error}</p>}
+            {notice && <p className="form-success" role="status">{notice}</p>}
+            <div className="product-form-actions">
+              <button className="admin-primary" type="submit" disabled={submitting}>{submitting ? "Uploading and saving…" : editingProductId ? "Save changes" : "Create product"}</button>
+              {editingProductId && <button className="admin-secondary" type="button" onClick={cancelEditing} disabled={submitting}>Cancel</button>}
+            </div>
+          </form>
         </section>
+        <section className="admin-panel inventory-panel">
+          <div className="inventory-heading"><h2>Product inventory</h2><button onClick={loadProducts} disabled={loadingProducts}>{loadingProducts ? "Refreshing…" : "Refresh"}</button></div>
+          {inventoryError && <p className="form-error" role="alert">{inventoryError}</p>}
+          {inventoryNotice && <p className="form-success" role="status">{inventoryNotice}</p>}
+          {products.length === 0 && !loadingProducts ? <p className="admin-hint">No products yet. Create your first post above.</p> : <div className="inventory-list">
+            {products.map((product) => {
+              const images = Array.isArray(product.images) ? product.images : [];
+              return (
+                <article className="inventory-item" key={product.id}>
+                  {images[0]
+                    ? <Image src={images[0]} alt="" width={128} height={152} sizes="64px" />
+                    : <div className="inventory-image-placeholder" aria-label="No product photo">MAU</div>}
+                  <div className="inventory-info"><h3>{product.title}</h3><p>₦{product.price.toLocaleString("en-NG")} · {product.categoryLabel} · {images.length} {images.length === 1 ? "photo" : "photos"}</p></div>
+                  <span className={product.isPublished ? "status-published" : "status-draft"}>{product.isPublished ? "Published" : "Draft"}</span>
+                  <div className="inventory-actions">
+                    <button className="status-toggle" type="button" onClick={() => startEditing(product)} disabled={Boolean(updatingId) || submitting}>Edit</button>
+                    <button className="status-toggle" type="button" onClick={() => togglePublication(product)} disabled={Boolean(updatingId) || submitting}>{updatingId === product.id ? "Updating…" : product.isPublished ? "Unpublish" : "Publish"}</button>
+                    <button className="status-toggle danger-button" type="button" onClick={() => deleteProduct(product)} disabled={Boolean(updatingId) || submitting}>{updatingId === product.id ? "Working…" : "Delete"}</button>
+                  </div>
+                </article>
+              );
+            })}
+          </div>}
+        </section>
+        
         <section className="admin-panel">
           <h2>WhatsApp contact</h2>
           <p className="admin-hint">This number is used by the floating WhatsApp button across the storefront. Include the country code.</p>
@@ -533,60 +565,31 @@ export default function AdminDashboard() {
             <button className="admin-primary" type="submit" disabled={savingCeoProfile}>{savingCeoProfile ? "Uploading and saving…" : "Save CEO profile"}</button>
           </form>
         </section>
-        <section className="admin-panel" id="product-editor">
-          <h2>{editingProductId ? "Edit product" : "Create a product post"}</h2>
-          <p className="admin-hint">{editingProductId ? "Update the product details, photos, or publication status." : "Add your design details and optionally upload up to five photos. Publish now or save it as a draft."}</p>
-          <form onSubmit={saveProduct} className="product-form">
-            <label>Product name<input maxLength={120} value={form.title} onChange={(event) => setForm({ ...form, title: event.target.value })} required /></label>
-            <label>Description<textarea maxLength={2000} rows={4} value={form.description} onChange={(event) => setForm({ ...form, description: event.target.value })} required /></label>
-            <div className="form-row">
-              <label>Price (₦)<input type="number" min="1" max="100000000" step="1" value={form.price} onChange={(event) => setForm({ ...form, price: event.target.value })} required /></label>
-              <label>Category<select value={form.category} onChange={(event) => setForm({ ...form, category: event.target.value })}>{PRODUCT_CATEGORIES.map((category) => <option key={category.id} value={category.id}>{category.label}{!isCategoryAvailable(category.id, categoryAvailability) ? " (unavailable)" : ""}</option>)}</select></label>
-            </div>
-            <label className="image-picker">Product photos <span>Optional · JPG, PNG, WebP, AVIF · 10 MB max each · {existingImages.length + files.length}/5 selected</span>
-              <input type="file" accept="image/jpeg,image/png,image/webp,image/avif" multiple onChange={chooseFiles} disabled={existingImages.length + files.length >= 5} />
-            </label>
-            {(existingImages.length > 0 || files.length > 0) && <div className="preview-grid">
-              {existingImages.map((url, index) => <div className="preview-item" key={`existing-${url}-${index}`}>
-                <Image src={url} alt={`Current product photo ${index + 1}`} width={92} height={108} sizes="92px" />
-                <button type="button" onClick={() => removeExistingImage(index)} aria-label={`Remove current image ${index + 1}`}>×</button></div>)}
-              {files.map(({ url }, index) => 
-              <div className="preview-item" key={url}><Image src={url} alt={`New product photo ${index + 1}`} width={92} height={108} unoptimized /><button type="button" onClick={() => removeFile(index)} aria-label={`Remove new image ${index + 1}`}>×</button></div>)}
-            </div>}
-            <label className="publish-option"><input type="checkbox" checked={form.isPublished} onChange={(event) => setForm({ ...form, isPublished: event.target.checked })} /> Publish this product to the storefront</label>
-            {error && <p className="form-error" role="alert">{error}</p>}
-            {notice && <p className="form-success" role="status">{notice}</p>}
-            <div className="product-form-actions">
-              <button className="admin-primary" type="submit" disabled={submitting}>{submitting ? "Uploading and saving…" : editingProductId ? "Save changes" : "Create product"}</button>
-              {editingProductId && <button className="admin-secondary" type="button" onClick={cancelEditing} disabled={submitting}>Cancel</button>}
-            </div>
-          </form>
+        <section className="admin-panel availability-panel">
+          <h2>Shop sections</h2>
+          <p className="admin-hint">Choose which sections appear in the shop navigation. Sections start available; hiding one also hides its products from the storefront.</p>
+          {categorySettingsError && <p className="form-error" role="alert">{categorySettingsError}</p>}
+          <div className="category-settings">
+            {NAV_SECTIONS.map((section) => (
+              <div className="category-setting-group" key={section.id}>
+                <label className="category-setting">
+                  <span><strong>{section.label}</strong><small>{section.description}</small></span>
+                  <input type="checkbox" checked={categoryAvailability[section.id]} disabled={updatingCategory === section.id} onChange={() => toggleCategory(section.id)} aria-label={`${section.label} available in the shop`} />
+                </label>
+                {section.children && <div className="service-settings">
+                  {section.children.map((service) => (
+                    <label className="category-setting service-setting" key={service.id}>
+                      <span><strong>{service.label}</strong></span>
+                      <input type="checkbox" checked={categoryAvailability[service.id]} disabled={updatingCategory === service.id || !categoryAvailability[section.id]} onChange={() => toggleCategory(service.id)} aria-label={`${service.label} available in the shop`} />
+                    </label>
+                  ))}
+                </div>}
+              </div>
+            ))}
+          </div>
         </section>
-
-        <section className="admin-panel inventory-panel">
-          <div className="inventory-heading"><h2>Product inventory</h2><button onClick={loadProducts} disabled={loadingProducts}>{loadingProducts ? "Refreshing…" : "Refresh"}</button></div>
-          {inventoryError && <p className="form-error" role="alert">{inventoryError}</p>}
-          {inventoryNotice && <p className="form-success" role="status">{inventoryNotice}</p>}
-          {products.length === 0 && !loadingProducts ? <p className="admin-hint">No products yet. Create your first post above.</p> : <div className="inventory-list">
-            {products.map((product) => {
-              const images = Array.isArray(product.images) ? product.images : [];
-              return (
-                <article className="inventory-item" key={product.id}>
-                  {images[0]
-                    ? <Image src={images[0]} alt="" width={128} height={152} sizes="64px" />
-                    : <div className="inventory-image-placeholder" aria-label="No product photo">MAU</div>}
-                  <div className="inventory-info"><h3>{product.title}</h3><p>₦{product.price.toLocaleString("en-NG")} · {product.categoryLabel} · {images.length} {images.length === 1 ? "photo" : "photos"}</p></div>
-                  <span className={product.isPublished ? "status-published" : "status-draft"}>{product.isPublished ? "Published" : "Draft"}</span>
-                  <div className="inventory-actions">
-                    <button className="status-toggle" type="button" onClick={() => startEditing(product)} disabled={Boolean(updatingId) || submitting}>Edit</button>
-                    <button className="status-toggle" type="button" onClick={() => togglePublication(product)} disabled={Boolean(updatingId) || submitting}>{updatingId === product.id ? "Updating…" : product.isPublished ? "Unpublish" : "Publish"}</button>
-                    <button className="status-toggle danger-button" type="button" onClick={() => deleteProduct(product)} disabled={Boolean(updatingId) || submitting}>{updatingId === product.id ? "Working…" : "Delete"}</button>
-                  </div>
-                </article>
-              );
-            })}
-          </div>}
-        </section>
+        
+        
       </div>
     </main>
   );

@@ -95,7 +95,7 @@ export default function StorefrontHeader({ categoryAvailability }) {
   return (
     <>
       <div className="announcement">{announcement}</div>
-      <header className="header sticky top">
+      <header className="header">
         <button className="icon-button mobile-menu" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu"><HeaderIcon name={menuOpen ? "close" : "menu"} /></button>
         <Link className="brand" href="/">
         <HeaderLogo />

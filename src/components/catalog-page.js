@@ -73,7 +73,7 @@ export default function CatalogPage({ kind, categoryId, initialService = "All" }
     ? sectionProducts
     : sectionProducts.filter((product) => product.category === selectedService);
 
-  const { addItem } = useCart();
+  const { addToBag } = useCart();
 
   const categorySection = NAV_SECTIONS.find((section) => section.id === listingCategoryId);
   const title = kind === "styles" ? "Styles" : kind === "services" ? "Services" : categorySection?.label || "Shop";
@@ -114,7 +114,7 @@ export default function CatalogPage({ kind, categoryId, initialService = "All" }
               : visibleProducts.length === 0
                 ? <p className="shop-message">Nothing here just yet. Check back soon.</p>
                 : <div className="product-grid">
-                  {visibleProducts.map((product) => <ProductCard key={product.id} product={product} onAddToBag={addItem} />)}
+                  {visibleProducts.map((product) => <ProductCard key={product.id} product={product} onAddToBag={addToBag} />)}
                 </div>}
       </section>
       <StorefrontFooter />

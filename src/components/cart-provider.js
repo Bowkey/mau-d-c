@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useSyncExternalStore } from "react";
+import { createContext, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 const STORAGE_KEY = "mau-Collections-cart";
 const CartContext = createContext(null);
@@ -119,17 +119,37 @@ function clearCart() {
 
 export function CartProvider({ children }) {
   const { items, isReady } = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const [addedItemNotice, setAddedItemNotice] = useState("");
+  const noticeTimer = useRef(null);
+
+  useEffect(() => () => {
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+  }, []);
+
+  function addToBag(product) {
+    addItem(product);
+    setAddedItemNotice(`${product.title} added to your bag.`);
+    if (noticeTimer.current) clearTimeout(noticeTimer.current);
+    noticeTimer.current = setTimeout(() => setAddedItemNotice(""), 3000);
+  }
+
   const value = {
     items,
     isReady,
     itemCount: items.reduce((total, item) => total + item.quantity, 0),
     addItem,
+    addToBag,
     setItemQuantity,
     removeItem,
     clearCart,
   };
 
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      {addedItemNotice && <div className="cart-toast" role="status">{addedItemNotice}</div>}
+    </CartContext.Provider>
+  );
 }
 
 export function useCart() {
