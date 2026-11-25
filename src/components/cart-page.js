@@ -67,7 +67,10 @@ export default function CartPage() {
       <section className="cart-content">
         <div className="cart-title">
           <div><p className="eyebrow">YOUR MAU SELECTION</p><h1>Your cart</h1></div>
-          <p>{itemCount} {itemCount === 1 ? "item" : "items"}</p>
+          <div className="cart-title-actions">
+            <p>{itemCount} {itemCount === 1 ? "item" : "items"}</p>
+            <Link className="cart-close" href="/" aria-label="Close cart and return to shop">×</Link>
+          </div>
         </div>
 
         {!isReady
